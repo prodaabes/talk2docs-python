@@ -1,16 +1,14 @@
-from fastapi import FastAPI
-from pydantic import BaseModel
-
-class Item(BaseModel):
-    name: str
+from fastapi import FastAPI, Request, UploadFile, File, Form
+from typing import List
+from upload import upload
 
 app = FastAPI()
-
 
 @app.get("/")
 async def root():
     return {"message": "Hello World"}
 
-@app.post("/printName")
-async def printName(item: Item):
-    return item
+@app.post("/upload-docs")
+async def uploadDocs(ownerId: str = Form(...), files: List[UploadFile] = File(...)):
+    upload(ownerId, files)
+    return { "success": 1 }
