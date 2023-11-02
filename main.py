@@ -3,7 +3,9 @@ from typing import List
 from upload import upload
 from pymongo.mongo_client import MongoClient
 from pymongo.server_api import ServerApi
+import jwt
 
+# command to run the server: uvicorn main:app --host <ip-address> --port 80 --reload
 app = FastAPI()
 
 
@@ -16,7 +18,8 @@ def pingMongoClient():
         pingMongoClient()
 
 
-uri = "mongodb+srv://prodaabes:123456Fafa@cluster0.wu7x6ae.mongodb.net/?retryWrites=true&w=majority"
+# uri = "mongodb+srv://prodaabes:123456Fafa@cluster0.wu7x6ae.mongodb.net/?retryWrites=true&w=majority"
+uri = "mongodb://localhost:27017"
 
 # Create a new client and connect to the server
 client = MongoClient(uri, server_api=ServerApi('1'))
@@ -37,10 +40,89 @@ async def uploadDocs(ownerId: str = Form(...), files: List[UploadFile] = File(..
     upload(ownerId, files)
     return { "success": 1 }
 
-@app.get("/get-all-users")
-async def getUsers():
-    users = list()
-    users_cluster = db.get_collection('users').find({}, {'_id': 0})
-    for user in users_cluster:
-        users.append(user)
-    return users
+@app.post("/login")
+async def login(request: Request):
+
+    # get the request body
+    body = await request.json()
+
+    # get email and password from body
+    email = body["email"]
+    password = body["password"]
+
+    # check if the email and password exists in our database
+    usersCol = db['users']
+    query = { "email": email, "password": password }
+    cursor = usersCol.find(query)
+    users = list(cursor)
+    
+    # this data will be returned in response
+    data = {}
+
+    if len(users) == 0:
+        data["success"] = False
+    else:
+        # generate JWT token
+
+        payload_data = {
+            "email": email,
+            "password": password
+        }
+
+        token = jwt.encode(
+            payload=payload_data,
+            key="tAlK2DoCs-SeCrEt"
+        )
+
+        data["success"] = True
+        data["token"] = token
+
+    return data
+
+@app.post("/register")
+async def register(request: Request):
+
+    # get the request body
+    body = await request.json()
+
+    # get user data from body
+    first_name = body["first_name"]
+    last_name = body["last_name"]
+    email = body["email"]
+    password = body["password"]
+
+    # check if the email already exists in our database
+    usersCol = db['users']
+    query = { "email": email }
+    cursor = usersCol.find(query)
+    users = list(cursor)
+    
+    # this data will be returned in response
+    data = {}
+
+    # if email already exists, don't register
+    if len(users) > 0:
+        data["success"] = False
+    else:
+        usersCol.insert_one({
+            first_name: first_name,
+            last_name: last_name,
+            email: email,
+            password: password
+        })
+
+        # generate JWT token
+        payload_data = {
+            "email": email,
+            "password": password
+        }
+
+        token = jwt.encode(
+            payload=payload_data,
+            key="tAlK2DoCs-SeCrEt"
+        )
+
+        data["success"] = True
+        data["token"] = token
+
+    return data
