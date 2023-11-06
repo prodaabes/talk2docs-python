@@ -1,4 +1,5 @@
 from fastapi import FastAPI, Request, UploadFile, File, Form
+from fastapi.middleware.cors import CORSMiddleware
 from typing import List
 from upload import upload
 from pymongo.mongo_client import MongoClient
@@ -7,6 +8,19 @@ import jwt
 
 # command to run the server: uvicorn main:app --host <ip-address> --port 80 --reload
 app = FastAPI()
+
+
+# cors required for web app #
+origins = ["*"]
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=origins,
+    allow_credentials=True,
+    allow_methods=["GET", "POST"],
+    allow_headers=["*"],
+)
+# cors required for web app #
 
 
 def pingMongoClient():
@@ -65,8 +79,9 @@ async def login(request: Request):
         # generate JWT token
 
         payload_data = {
-            "email": email,
-            "password": password
+            "first_name": users[0]['first_name'],
+            "last_name": users[0]['last_name'],
+            "email": email
         }
 
         token = jwt.encode(
