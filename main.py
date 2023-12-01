@@ -92,6 +92,7 @@ async def login(request: Request):
         data["success"] = True
         data["token"] = token
         data["id"] = str(users[0]['_id'])
+        data["fullname"] = payload_data["first_name"] + ' ' + payload_data["last_name"]
 
     return data
 
