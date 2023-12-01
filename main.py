@@ -73,7 +73,6 @@ async def login(request: Request):
     
     # this data will be returned in response
     data = {}
-
     if len(users) == 0:
         data["success"] = False
     else:
@@ -122,10 +121,10 @@ async def register(request: Request):
         data["success"] = False
     else:
         usersCol.insert_one({
-            first_name: first_name,
-            last_name: last_name,
-            email: email,
-            password: password
+            "first_name": first_name,
+            "last_name": last_name,
+            "email": email,
+            "password": password
         })
 
         # generate JWT token
@@ -137,6 +136,7 @@ async def register(request: Request):
         token = jwt.encode(
             payload=payload_data,
             key="tAlK2DoCs-SeCrEt"
+            # algorithm='HS256'
         )
 
         data["success"] = True
