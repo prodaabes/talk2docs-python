@@ -3,11 +3,11 @@ from fastapi.middleware.cors import CORSMiddleware
 from typing import List
 from pathlib import Path
 import shutil
-from pymongo.mongo_client import MongoClient
-from pymongo.server_api import ServerApi
 from bson import ObjectId
 import jwt
-import os, signal, subprocess
+import subprocess
+from db_manager import db
+
 
 # command to run the server: uvicorn main:app --host <ip-address> --port 80 --reload
 app = FastAPI()
@@ -25,27 +25,6 @@ app.add_middleware(
 )
 # cors required for web app #
 
-
-def pingMongoClient():
-    try:
-        client.admin.command('ping')
-        print("Pinged your deployment. You successfully connected to MongoDB!")
-    except Exception as e:
-        print(e)
-        pingMongoClient()
-
-
-# uri = "mongodb+srv://prodaabes:123456Fafa@cluster0.wu7x6ae.mongodb.net/?retryWrites=true&w=majority"
-uri = "mongodb://localhost:27017"
-
-# Create a new client and connect to the server
-client = MongoClient(uri, server_api=ServerApi('1'))
-
-# Send a ping to confirm a successful connection
-pingMongoClient()
-
-
-db = client.get_database('talk2docs-db')
 
 # current model.py subprocess fired by startChat() method
 pro = None
@@ -192,6 +171,7 @@ async def removeDoc(request: Request):
         fileName = body['fileName']
 
         # remove the file from the chat directory
+
         file_parent_path = "chats/" + chatId
 
         # get the document
@@ -286,24 +266,43 @@ async def getMessages(chatId: str):
 
     return { "success": True, "messages": messages }
 
-# @app.post('/messages/send/{text}')
-# async def sendMessage(chatId: str, text: str):
+@app.post('/chats/new')
+async def newChat(request: Request):
 
-#     # add new message to messages collection
-#     messagesCol = db['messages']
-#     messagesCol.insert_one({
-#         'chatId': chatId,
-#         'isQuestion': True,
-#         'content': text
-#     })
-
-@app.get('/chats/{chatId}/files')
-async def getFiles(chatId: str):
-
+    body = await request.json()
+    userId = body['userId']
+    
     chatsCol = db['chats']
-    query = { "_id": ObjectId(chatId) }
-    chats = chatsCol.find(query, { "_id": 0 })
 
-    files = chats[0]['files']
+    doc = chatsCol.insert_one({
+        'userId': userId,
+        'title': 'New Chat'
+    })
 
-    return { "success": True, "files": files }
+    id = str(doc.inserted_id)
+
+    return { 'success': True, 'id': id }
+
+@app.delete('/chats/{chatId}/delete')
+async def deleteChat(chatId: str):
+        
+    file_parent_path = "chats/" + chatId
+
+    # get the document
+    chatDoc = db['chats'].find_one({ '_id': ObjectId(chatId) })
+    files = chatDoc['files']
+
+    for file in files:
+        Path(file_parent_path + "/" + file).unlink()
+
+    # delete the entire document from database
+    db['chats'].delete_one({ '_id': ObjectId(chatId) })
+    # delete all messages for this chat
+    db['messages'].delete_many({ 'chatId': chatId })
+    # delete knowledge.txt
+    Path(file_parent_path + "/knowledge.txt").unlink()
+    # delete the chat directory
+    Path(file_parent_path).rmdir()
+        
+
+    return { 'success': True }

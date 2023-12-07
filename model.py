@@ -1,4 +1,3 @@
-import time
 import argparse
 import pytesseract
 import asyncio
@@ -15,6 +14,10 @@ from colorama import Fore
 from os import listdir
 from os.path import isfile, join
 from PIL import Image
+
+from db_manager import db
+
+chatId = ''
 
 conversation = None
 chat_history = None
@@ -92,15 +95,29 @@ def handle_userinput(user_question):
     return chat_history[len(chat_history) - 1].content
 
 async def listen(websocket):
+    messagesCol = db['messages']
+
     question = await websocket.recv()
-    print(Fore.RED + f'Question: {question}')
+    #print(Fore.RED + f'Question: {question}')
+
+    messagesCol.insert_one({
+        'chatId': chatId,
+        'isQuestion': True,
+        'content': question
+    })
 
     answer = handle_userinput(question)
     await websocket.send(answer)
-    print(Fore.CYAN + f'Answer: {answer}')
+    #print(Fore.CYAN + f'Answer: {answer}')
+
+    messagesCol.insert_one({
+        'chatId': chatId,
+        'isQuestion': False,
+        'content': answer
+    })
 
 
-async def main(chatId):
+async def main():
     load_dotenv()
 
     # get pdf text
@@ -120,15 +137,17 @@ async def main(chatId):
         #print(server.sockets[0].getsockname()[1])
         await asyncio.Future() # run forever
 
-def run(chatId = None):
-    if chatId == None:
+def run():
+    global chatId
+
+    if chatId == '':
         parser = argparse.ArgumentParser()
         parser.add_argument("--chatId")
         args = parser.parse_args()
 
         chatId = args.chatId
 
-    asyncio.run(main(chatId))
+    asyncio.run(main())
 
 if __name__ == '__main__':
     run()
