@@ -5,11 +5,9 @@ from pathlib import Path
 import shutil
 from pymongo.mongo_client import MongoClient
 from pymongo.server_api import ServerApi
-from bson import ObjectId, json_util
-import json
+from bson import ObjectId
 import jwt
-import subprocess
-import model
+import os, signal, subprocess
 
 # command to run the server: uvicorn main:app --host <ip-address> --port 80 --reload
 app = FastAPI()
@@ -48,6 +46,9 @@ pingMongoClient()
 
 
 db = client.get_database('talk2docs-db')
+
+# current model.py subprocess fired by startChat() method
+pro = None
 
 
 @app.get("/")
@@ -146,8 +147,8 @@ async def register(request: Request):
     return data
 
 # this function made to upload the user files to the 'chats' folder
-@app.post("/upload-docs")
-async def uploadDocs(chatId: str = Form(...), files: List[UploadFile] = File(...)):
+@app.post("/chats/{chatId}/upload-docs")
+async def uploadDocs(chatId: str, files: List[UploadFile] = File(...)):
     for file in files:
         try:
 
@@ -171,6 +172,9 @@ async def uploadDocs(chatId: str = Form(...), files: List[UploadFile] = File(...
                     # the upsert set to True in order to create the chat document if not exists in database
                     upsert=True
                 )
+
+                # add the file content to knowledge.txt
+                subprocess.Popen(["venv/Scripts/python.exe", "add_doc.py", "--chatId", chatId, "--file", file.filename])
                     
         except Exception as e:
             print(str(e))
@@ -178,9 +182,14 @@ async def uploadDocs(chatId: str = Form(...), files: List[UploadFile] = File(...
 
 
 # this function made to remove a single file from the 'chats' folder
-@app.post("/remove-doc")
-async def removeDoc(chatId: str = Form(...), fileName: str = Form(...)):
+@app.post("/chats/{chatId}/remove-doc")
+async def removeDoc(request: Request):
     try:
+
+        body = await request.json()
+
+        chatId = body['chatId']
+        fileName = body['fileName']
 
         # remove the file from the chat directory
         file_parent_path = "chats/" + chatId
@@ -203,10 +212,17 @@ async def removeDoc(chatId: str = Form(...), fileName: str = Form(...)):
         # delete the file from the chat directory
         Path(file_parent_path + "/" + fileName).unlink()
 
+        # remove the file content from knowledge.txt
+        subprocess.Popen(["venv/Scripts/python.exe", "remove_doc.py", "--chatId", chatId, "--file", fileName])
+
         # check if the document contains only 1 file
         if len(files) == 1 and fileName in files:
             # delete the entire document from database
             db['chats'].delete_one({ '_id': ObjectId(chatId) })
+            # delete all messages for this chat
+            db['messages'].delete_many({ 'chatId': chatId })
+            # delete knowledge.txt
+            Path(file_parent_path + "/knowledge.txt").unlink()
             # delete the chat directory
             Path(file_parent_path).rmdir()
                     
@@ -217,11 +233,21 @@ async def removeDoc(chatId: str = Form(...), fileName: str = Form(...)):
 
 
 
-@app.post('/start-chat')
-async def startChat(chatId: str = Form(...)):
+@app.post('/chats/{chatId}/start')
+async def startChat(chatId: str):
     #subprocess.Popen(["venv/Scripts/python.exe", "model.py", "--chatId", chatId])
-    port = subprocess.check_output(["venv/Scripts/python.exe", "model.py", "--chatId", chatId], shell=False)
-    print("this is the port from main: " + port.decode("utf-8"))
+    #port = subprocess.check_output(["venv/Scripts/python.exe", "model.py", "--chatId", chatId], shell=False)
+    #print("this is the port from main: " + port.decode("utf-8"))
+
+    global pro
+
+    if (pro != None):
+        # kill the old process
+        pro.kill()
+
+    # The os.setsid() is passed in the argument preexec_fn so
+    # it's run after the fork() and before  exec() to run the shell.
+    pro = subprocess.Popen(["venv/Scripts/python.exe", "model.py", "--chatId", chatId], stdout=subprocess.PIPE, shell=False)
 
     return { "success": True, "port": 8765 }
 
@@ -259,3 +285,25 @@ async def getMessages(chatId: str):
         del[m['_id']]
 
     return { "success": True, "messages": messages }
+
+# @app.post('/messages/send/{text}')
+# async def sendMessage(chatId: str, text: str):
+
+#     # add new message to messages collection
+#     messagesCol = db['messages']
+#     messagesCol.insert_one({
+#         'chatId': chatId,
+#         'isQuestion': True,
+#         'content': text
+#     })
+
+@app.get('/chats/{chatId}/files')
+async def getFiles(chatId: str):
+
+    chatsCol = db['chats']
+    query = { "_id": ObjectId(chatId) }
+    chats = chatsCol.find(query, { "_id": 0 })
+
+    files = chats[0]['files']
+
+    return { "success": True, "files": files }
