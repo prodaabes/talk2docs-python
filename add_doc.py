@@ -34,7 +34,7 @@ def main():
     raw_text = get_pdf_text()
 
     # write the text in the knowledge.txt file
-    with open('chats/' + chatId + '/knowledge.txt', 'w') as f:
+    with open('chats/' + chatId + '/knowledge.txt', 'w', encoding='utf-8') as f:
         f.write('### start of ' + fileName + ' ###\n')
         f.write(raw_text + '\n')
         f.write('### end of ' + fileName + ' ###\n')

@@ -133,7 +133,7 @@ async def main():
     global conversation
     conversation = get_conversation_chain(vectorstore)
 
-    async with websockets.serve(listen, "192.168.0.130", 8765) as server:
+    async with websockets.serve(listen, "192.168.0.143", 8765) as server:
         #print(server.sockets[0].getsockname()[1])
         await asyncio.Future() # run forever
 

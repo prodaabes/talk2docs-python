@@ -72,7 +72,7 @@ async def login(request: Request):
         data["success"] = True
         data["token"] = token
         data["id"] = str(users[0]['_id'])
-        data["fullname"] = payload_data["first_name"] + ' ' + payload_data["last_name"]
+        data["fullName"] = payload_data["first_name"] + ' ' + payload_data["last_name"]
 
     return data
 
@@ -306,3 +306,51 @@ async def deleteChat(chatId: str):
         
 
     return { 'success': True }
+
+@app.post("/login-google")
+async def loginGoogle(request: Request):
+
+    # get the request body
+    body = await request.json()
+
+    # get email and token from body
+    email = body["email"]
+    tokenGoogle = body["token"]
+    displayName=body["displayName"]
+
+    # check if the email and token exists in our database
+    usersCol = db['users']
+    query = { "email": email}
+    cursor = usersCol.find(query)
+    users = list(cursor)
+
+    # this data will be returned in response
+    data = {}
+    if len(users) == 0:
+        usersCol.insert_one({
+            "first_name": displayName,
+            "last_name": "",
+            "email": email,
+            "password": ""
+        })
+        cursor = usersCol.find(query)
+        users = list(cursor)
+
+    payload_data = {
+            "first_name": displayName,
+            "last_name": '',
+            "email": email
+    }
+
+    token = jwt.encode(
+            payload=payload_data,
+            key="tAlK2DoCs-SeCrEt"
+    )
+    
+    data["success"] = True
+    data["token"] = token
+    data["id"] = str(users[0]['_id'])
+    data["fullName"] = payload_data["first_name"] + ' ' + payload_data["last_name"]
+
+
+    return data
