@@ -14,6 +14,7 @@ from colorama import Fore
 from os import listdir
 from os.path import isfile, join
 from PIL import Image
+from bson import ObjectId
 
 from db_manager import db
 
@@ -116,6 +117,13 @@ async def listen(websocket):
         'content': answer
     })
 
+    title = answer
+    if len(answer) > 40:
+        title = answer[:40]
+
+    chatsCol = db['chats']
+    chatsCol.find_one_and_update({ '_id': ObjectId(chatId) }, { '$set': { 'title': title } })
+
 
 async def main():
     load_dotenv()
@@ -133,7 +141,7 @@ async def main():
     global conversation
     conversation = get_conversation_chain(vectorstore)
 
-    async with websockets.serve(listen, "192.168.0.143", 8765) as server:
+    async with websockets.serve(listen, "192.168.0.117", 8765) as server:
         #print(server.sockets[0].getsockname()[1])
         await asyncio.Future() # run forever
 
