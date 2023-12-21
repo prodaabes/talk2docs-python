@@ -276,7 +276,8 @@ async def newChat(request: Request):
 
     doc = chatsCol.insert_one({
         'userId': userId,
-        'title': 'New Chat'
+        'title': 'New Chat',
+        'files': []
     })
 
     id = str(doc.inserted_id)
