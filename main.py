@@ -6,6 +6,7 @@ import shutil
 from bson import ObjectId
 import jwt
 import subprocess
+import os
 from db_manager import db
 
 
@@ -20,7 +21,7 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=origins,
     allow_credentials=True,
-    allow_methods=["GET", "POST"],
+    allow_methods=["*"],
     allow_headers=["*"],
 )
 # cors required for web app #
@@ -101,7 +102,7 @@ async def register(request: Request):
     if len(users) > 0:
         data["success"] = False
     else:
-        usersCol.insert_one({
+        doc = usersCol.insert_one({
             "first_name": first_name,
             "last_name": last_name,
             "email": email,
@@ -120,8 +121,11 @@ async def register(request: Request):
             # algorithm='HS256'
         )
 
+        id = str(doc.inserted_id)
+
         data["success"] = True
         data["token"] = token
+        data["id"] = id
 
     return data
 
@@ -215,15 +219,15 @@ async def removeDoc(request: Request):
 
 @app.post('/chats/{chatId}/start')
 async def startChat(chatId: str):
-    #subprocess.Popen(["venv/Scripts/python.exe", "model.py", "--chatId", chatId])
-    #port = subprocess.check_output(["venv/Scripts/python.exe", "model.py", "--chatId", chatId], shell=False)
-    #print("this is the port from main: " + port.decode("utf-8"))
-
     global pro
 
     if (pro != None):
         # kill the old process
         pro.kill()
+
+    # ensure that the chat has its own directory
+    file_parent_path = "chats/" + chatId
+    Path(file_parent_path).mkdir(parents=True, exist_ok=True)
 
     # The os.setsid() is passed in the argument preexec_fn so
     # it's run after the fork() and before  exec() to run the shell.
@@ -296,12 +300,15 @@ async def deleteChat(chatId: str):
     for file in files:
         Path(file_parent_path + "/" + file).unlink()
 
+    if (os.path.isfile(file_parent_path + "/knowledge.txt")):
+        # delete knowledge.txt
+        Path(file_parent_path + "/knowledge.txt").unlink()
+
     # delete the entire document from database
     db['chats'].delete_one({ '_id': ObjectId(chatId) })
     # delete all messages for this chat
     db['messages'].delete_many({ 'chatId': chatId })
-    # delete knowledge.txt
-    Path(file_parent_path + "/knowledge.txt").unlink()
+    
     # delete the chat directory
     Path(file_parent_path).rmdir()
         

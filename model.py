@@ -28,7 +28,7 @@ def get_pdf_text(chatId):
     filesPath = 'chats/' + chatId
     files = [f for f in listdir(filesPath) if isfile(join(filesPath, f))]
 
-    raw_text = ''
+    raw_text = '----------\n'
 
     for i, fileName in enumerate(files):
         if fileName.endswith('.pdf'):
@@ -141,7 +141,7 @@ async def main():
     global conversation
     conversation = get_conversation_chain(vectorstore)
 
-    async with websockets.serve(listen, "192.168.0.120", 8765) as server:
+    async with websockets.serve(listen, "192.168.0.130", 8765) as server:
         #print(server.sockets[0].getsockname()[1])
         await asyncio.Future() # run forever
 
