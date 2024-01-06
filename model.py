@@ -71,7 +71,7 @@ def get_vectorstore(text_chunks):
 
 
 def get_conversation_chain(vectorstore):
-    llm = ChatOpenAI()
+    llm = ChatOpenAI(model='gpt-4')
 
     memory = ConversationBufferMemory(
         memory_key='chat_history', return_messages=True)
@@ -141,7 +141,7 @@ async def main():
     global conversation
     conversation = get_conversation_chain(vectorstore)
 
-    async with websockets.serve(listen, "192.168.0.130", 8765) as server:
+    async with websockets.serve(listen, "192.168.152.248", 8765) as server:
         #print(server.sockets[0].getsockname()[1])
         await asyncio.Future() # run forever
 

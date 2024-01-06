@@ -309,8 +309,9 @@ async def deleteChat(chatId: str):
     # delete all messages for this chat
     db['messages'].delete_many({ 'chatId': chatId })
     
-    # delete the chat directory
-    Path(file_parent_path).rmdir()
+    if (os.path.isdir(file_parent_path)):
+        # delete the chat directory
+        Path(file_parent_path).rmdir()
         
 
     return { 'success': True }
